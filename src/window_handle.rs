@@ -27,7 +27,7 @@ use crate::{
     context::{
         ComputeLayoutCx, EventCx, FrameUpdate, LayoutCx, PaintCx, PaintState, StyleCx, UpdateCx,
     },
-    event::{Event, EventListener},
+    event::{Event, EventListener, EventPropagation},
     id::ViewId,
     inspector::{self, Capture, CaptureState, CapturedView},
     keyboard::{KeyEvent, Modifiers},
@@ -76,6 +76,7 @@ pub(crate) struct WindowHandle {
     pub(crate) last_pointer_down: Option<(u8, Point, Instant)>,
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     pub(crate) context_menu: RwSignal<Option<(Menu, Point)>>,
+    pub(crate) global_event_listener: Option<Box<dyn Fn(&Event) -> EventPropagation>>,
 }
 
 impl WindowHandle {
@@ -84,6 +85,7 @@ impl WindowHandle {
         view_fn: impl FnOnce(floem_winit::window::WindowId) -> Box<dyn View> + 'static,
         transparent: bool,
         apply_default_theme: bool,
+        global_event_listener: Option<Box<dyn Fn(&Event) -> EventPropagation>>,
     ) -> Self {
         let scope = Scope::new();
         let window_id = window.id();
@@ -144,6 +146,7 @@ impl WindowHandle {
             #[cfg(any(target_os = "linux", target_os = "freebsd"))]
             context_menu,
             last_pointer_down: None,
+            global_event_listener,
         };
         window_handle.app_state.set_root_size(size.get_untracked());
         if let Some(theme) = theme.get_untracked() {
@@ -178,6 +181,12 @@ impl WindowHandle {
         } else {
             cx.app_state.focus
         };
+
+        if let Some(global_event_listener) = &self.global_event_listener {
+            if let EventPropagation::Stop = global_event_listener(&event) {
+                return;
+            }
+        }
 
         if event.needs_focus() {
             let mut processed = false;

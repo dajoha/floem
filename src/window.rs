@@ -1,3 +1,5 @@
+use std::fmt;
+
 pub use floem_winit::window::Fullscreen;
 pub use floem_winit::window::Icon;
 pub use floem_winit::window::ResizeDirection;
@@ -8,10 +10,11 @@ pub use floem_winit::window::WindowLevel;
 use peniko::kurbo::{Point, Size};
 
 use crate::app::{add_app_update_event, AppUpdateEvent};
+use crate::event::Event;
+use crate::event::EventPropagation;
 use crate::view::IntoView;
 
 /// Configures various attributes (e.g. size, position, transparency, etc.) of a window.
-#[derive(Debug)]
 pub struct WindowConfig {
     pub(crate) size: Option<Size>,
     pub(crate) position: Option<Point>,
@@ -27,6 +30,27 @@ pub struct WindowConfig {
     pub(crate) apply_default_theme: bool,
     #[allow(dead_code)]
     pub(crate) mac_os_config: Option<MacOSWindowConfig>,
+    pub(crate) global_event_listener: Option<Box<dyn Fn(&Event) -> EventPropagation>>,
+}
+
+impl fmt::Debug for WindowConfig {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("WindowConfig")
+            .field("size", &self.size)
+            .field("position", &self.position)
+            .field("show_titlebar", &self.show_titlebar)
+            .field("transparent", &self.transparent)
+            .field("fullscreen", &self.fullscreen)
+            .field("window_icon", &self.window_icon)
+            .field("title", &self.title)
+            .field("enabled_buttons", &self.enabled_buttons)
+            .field("resizable", &self.resizable)
+            .field("undecorated", &self.undecorated)
+            .field("window_level", &self.window_level)
+            .field("apply_default_theme", &self.apply_default_theme)
+            .field("mac_os_config", &self.mac_os_config)
+            .finish()
+    }
 }
 
 impl Default for WindowConfig {
@@ -45,6 +69,7 @@ impl Default for WindowConfig {
             window_level: WindowLevel::Normal,
             apply_default_theme: true,
             mac_os_config: None,
+            global_event_listener: None,
         }
     }
 }
@@ -174,6 +199,14 @@ impl WindowConfig {
             let new_config = f(MacOSWindowConfig::default());
             self.mac_os_config = Some(new_config);
         }
+        self
+    }
+
+    pub fn global_event_listener(
+        mut self,
+        global_event_listener: impl Fn(&Event) -> EventPropagation + 'static,
+    ) -> Self {
+        self.global_event_listener = Some(Box::new(global_event_listener));
         self
     }
 }

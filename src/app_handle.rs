@@ -262,6 +262,7 @@ impl ApplicationHandle {
             window_level,
             apply_default_theme,
             mac_os_config,
+            global_event_listener,
         }: WindowConfig,
     ) {
         let mut window_builder = floem_winit::window::WindowBuilder::new()
@@ -351,7 +352,13 @@ impl ApplicationHandle {
             return;
         };
         let window_id = window.id();
-        let window_handle = WindowHandle::new(window, view_fn, transparent, apply_default_theme);
+        let window_handle = WindowHandle::new(
+            window,
+            view_fn,
+            transparent,
+            apply_default_theme,
+            global_event_listener,
+        );
         self.window_handles.insert(window_id, window_handle);
     }
 
