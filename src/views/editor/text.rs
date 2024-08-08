@@ -1,11 +1,11 @@
 use std::{borrow::Cow, fmt::Debug, ops::Range, rc::Rc};
 
 use crate::{
-    cosmic_text::{Attrs, AttrsList, FamilyOwned, Stretch, Weight},
     keyboard::Modifiers,
     peniko::Color,
     reactive::{RwSignal, Scope},
     style,
+    text::{Attrs, AttrsList, FamilyOwned, Stretch, Weight},
     views::EditorCustomStyle,
 };
 use downcast_rs::{impl_downcast, Downcast};
@@ -273,6 +273,7 @@ impl std::fmt::Display for RenderWhitespace {
 ///   - Default font size, font family, etc.
 /// - `AttrsList`: This lets you set spans of text to have different styling
 ///   - Syntax highlighting, bolding specific words, etc.
+///
 /// Then once the text layout for the line is created from that, we have:
 /// - `Layout Styles`: Where it may depend on the position of text in the line (after wrapping)
 ///   - Outline boxes
@@ -304,8 +305,8 @@ pub trait Styling {
     }
 
     // TODO(minor): better name?
-    fn italic_style(&self, _edid: EditorId, _line: usize) -> crate::cosmic_text::Style {
-        crate::cosmic_text::Style::Normal
+    fn italic_style(&self, _edid: EditorId, _line: usize) -> crate::text::Style {
+        crate::text::Style::Normal
     }
 
     fn stretch(&self, _edid: EditorId, _line: usize) -> Stretch {
@@ -573,7 +574,7 @@ pub struct SimpleStyling {
     line_height: f32,
     font_family: Vec<FamilyOwned>,
     weight: Weight,
-    italic_style: crate::cosmic_text::Style,
+    italic_style: crate::text::Style,
     stretch: Stretch,
     tab_width: usize,
     atomic_soft_tabs: bool,
@@ -612,7 +613,7 @@ impl SimpleStyling {
         self.increment_id();
     }
 
-    pub fn set_italic_style(&mut self, italic_style: crate::cosmic_text::Style) {
+    pub fn set_italic_style(&mut self, italic_style: crate::text::Style) {
         self.italic_style = italic_style;
         self.increment_id();
     }
@@ -640,7 +641,7 @@ impl Default for SimpleStyling {
             line_height: 1.5,
             font_family: vec![FamilyOwned::SansSerif],
             weight: Weight::NORMAL,
-            italic_style: crate::cosmic_text::Style::Normal,
+            italic_style: crate::text::Style::Normal,
             stretch: Stretch::Normal,
             tab_width: 4,
             atomic_soft_tabs: false,
@@ -675,7 +676,7 @@ impl Styling for SimpleStyling {
         self.weight
     }
 
-    fn italic_style(&self, _edid: EditorId, _line: usize) -> crate::cosmic_text::Style {
+    fn italic_style(&self, _edid: EditorId, _line: usize) -> crate::text::Style {
         self.italic_style
     }
 
@@ -717,7 +718,7 @@ pub struct SimpleStylingBuilder {
     line_height: Option<f32>,
     font_family: Option<Vec<FamilyOwned>>,
     weight: Option<Weight>,
-    italic_style: Option<crate::cosmic_text::Style>,
+    italic_style: Option<crate::text::Style>,
     stretch: Option<Stretch>,
     indent_style: Option<IndentStyle>,
     tab_width: Option<usize>,
@@ -755,7 +756,7 @@ impl SimpleStylingBuilder {
 
     /// Set the italic style
     /// Default: `Style::Normal`
-    pub fn italic_style(&mut self, italic_style: crate::cosmic_text::Style) -> &mut Self {
+    pub fn italic_style(&mut self, italic_style: crate::text::Style) -> &mut Self {
         self.italic_style = Some(italic_style);
         self
     }

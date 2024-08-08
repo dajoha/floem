@@ -9,14 +9,14 @@ use crate::{
     event::{Event, EventListener, EventPropagation},
     id::ViewId,
     prop, prop_extractor,
-    style::{Style, StyleClass, Width},
+    style::{CustomStylable, Style, StyleClass, Width},
     style_class,
     unit::PxPctAuto,
     view::{default_compute_layout, IntoView, View},
     views::{scroll, Decorators},
 };
 
-use super::{list, ListClass};
+use super::list;
 
 type ChildFn<T> = dyn Fn(T) -> (Box<dyn View>, Scope);
 
@@ -62,10 +62,10 @@ impl<T: 'static> View for DropDown<T> {
         if self.style.read(cx) {
             cx.app_state_mut().request_paint(self.id);
         }
-        cx.save();
-        self.list_style =
-            Style::new().apply_classes_from_context(&[ListClass::class_ref()], &cx.current);
-        cx.restore();
+        self.list_style = cx
+            .indirect_style()
+            .clone()
+            .apply_classes_from_context(&[scroll::ScrollClass::class_ref()], cx.indirect_style());
 
         for child in self.id.children() {
             cx.style_view(child);
@@ -304,19 +304,20 @@ impl<T> DropDown<T> {
         self,
         style: impl Fn(DropDownCustomStyle) -> DropDownCustomStyle + 'static,
     ) -> Self {
-        let id = self.id();
-        let view_state = id.state();
-        let offset = view_state.borrow_mut().style.next_offset();
-        let style = create_updater(
-            move || style(DropDownCustomStyle(Style::new())),
-            move |style| id.update_style(offset, style.0),
-        );
-        view_state.borrow_mut().style.push(style.0);
-        self
+        self.custom_style(style)
     }
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct DropDownCustomStyle(Style);
+impl From<DropDownCustomStyle> for Style {
+    fn from(val: DropDownCustomStyle) -> Self {
+        val.0
+    }
+}
+impl<T> CustomStylable<DropDownCustomStyle> for DropDown<T> {
+    type DV = Self;
+}
 
 impl DropDownCustomStyle {
     /// Sets the `CloseOnAccept` property for the dropdown, which determines whether the dropdown
@@ -324,15 +325,9 @@ impl DropDownCustomStyle {
     ///
     /// # Arguments
     /// * `close`: If set to `true`, the dropdown will close upon item selection. If `false`, it
-    /// will remain open after an item is selected.
+    ///   will remain open after an item is selected.
     pub fn close_on_accept(mut self, close: bool) -> Self {
         self = Self(self.0.set(CloseOnAccept, close));
-        self
-    }
-
-    /// Apply regular style properties
-    pub fn style(mut self, style: impl Fn(Style) -> Style + 'static) -> Self {
-        self = Self(self.0.apply(style(Style::new())));
         self
     }
 }

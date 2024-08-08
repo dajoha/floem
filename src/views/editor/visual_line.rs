@@ -1,6 +1,6 @@
 //! Visual Line implementation  
 //!   
-//! Files are easily broken up into buffer lines by just spliiting on `\n` or `\r\n`.  
+//! Files are easily broken up into buffer lines by just splitting on `\n` or `\r\n`.
 //! However, editors require features like wrapping and multiline phantom text. These break the
 //! nice one-to-one correspondence between buffer lines and visual lines.  
 //!   
@@ -69,7 +69,7 @@ use floem_editor_core::{
     word::WordCursor,
 };
 use floem_reactive::Scope;
-use floem_renderer::cosmic_text::{HitPosition, LayoutGlyph, TextLayout};
+use floem_renderer::text::{HitPosition, LayoutGlyph, TextLayout};
 use lapce_xi_rope::{Interval, Rope};
 use peniko::kurbo::Point;
 
@@ -223,7 +223,7 @@ pub trait TextLayoutProvider {
         wrap: ResolvedWrap,
     ) -> Arc<TextLayoutLine>;
 
-    /// Translate a column position into the postiion it would be before combining with the phantom
+    /// Translate a column position into the position it would be before combining with the phantom
     /// text
     fn before_phantom_col(&self, line: usize, col: usize) -> usize;
 
@@ -1062,7 +1062,7 @@ fn find_rvline_of_offset(
                     // There is no previous line, we do nothing.
                 } else {
                     // We have to get rvline info for that rvline, so we can get the last line index
-                    // This should aways have at least one rvline in it.
+                    // This should always have at least one rvline in it.
                     let font_sizes = lines.font_sizes.borrow();
                     let (prev, _) = prev_rvline(&layouts, text_prov, &**font_sizes, rv)?;
                     return Some(prev);
@@ -1928,7 +1928,7 @@ fn prev_rvline(
 
 // FIXME: Put this in our cosmic-text fork.
 
-/// Hit position but decides wether it should go to the next line based on the `before` bool.
+/// Hit position but decides whether it should go to the next line based on the `before` bool.
 /// (Hit position should be equivalent to `before=false`).  
 /// This is needed when we have an idx at the end of, for example, a wrapped line which could be on
 /// the first or second line.
@@ -1989,8 +1989,8 @@ pub fn hit_position_aff(this: &TextLayout, idx: usize, before: bool) -> HitPosit
             last_position = HitPosition {
                 line,
                 point: Point::new(glyph.x as f64, run.line_y as f64),
-                glyph_ascent: run.glyph_ascent as f64,
-                glyph_descent: run.glyph_descent as f64,
+                glyph_ascent: run.max_ascent as f64,
+                glyph_descent: run.max_descent as f64,
             };
             if (glyph.start + offset..glyph.end + offset).contains(&idx) {
                 return last_position;
@@ -2023,7 +2023,7 @@ mod tests {
         cursor::CursorAffinity,
     };
     use floem_reactive::Scope;
-    use floem_renderer::cosmic_text::{Attrs, AttrsList, FamilyOwned, TextLayout, Wrap};
+    use floem_renderer::text::{Attrs, AttrsList, FamilyOwned, TextLayout, Wrap};
     use lapce_xi_rope::Rope;
     use smallvec::smallvec;
 
@@ -2055,7 +2055,10 @@ mod tests {
                 phantom: ph,
                 // we use a specific font to make width calculations consistent between platforms.
                 // TODO(minor): Is there a more common font that we can use?
-                font_family: FamilyOwned::parse_list("Cascadia Code").collect(),
+                #[cfg(not(target_os = "windows"))]
+                font_family: vec![FamilyOwned::SansSerif],
+                #[cfg(target_os = "windows")]
+                font_family: vec![FamilyOwned::Name("Arial".to_string())],
                 wrap,
             }
         }
@@ -2219,8 +2222,7 @@ mod tests {
 
         for line in 0..rope_text.num_lines() {
             if let Some(text_layout) = layouts.get(font_size, line) {
-                let lines = &text_layout.text.lines;
-                for line in lines {
+                for line in text_layout.text.lines() {
                     let layouts = line.layout_opt().as_deref().unwrap();
                     for layout in layouts {
                         // Spacing

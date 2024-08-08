@@ -3,7 +3,6 @@ use std::{collections::HashMap, ops::RangeInclusive, rc::Rc};
 use crate::{
     action::{set_ime_allowed, set_ime_cursor_area},
     context::{LayoutCx, PaintCx, UpdateCx},
-    cosmic_text::{Attrs, AttrsList, TextLayout},
     event::{Event, EventListener, EventPropagation},
     id::ViewId,
     keyboard::{Key, Modifiers, NamedKey},
@@ -13,6 +12,7 @@ use crate::{
     style::{CursorStyle, Style},
     style_class,
     taffy::tree::NodeId,
+    text::{Attrs, AttrsList, TextLayout},
     view::{IntoView, View},
     views::{scroll, stack, Decorators},
     Renderer,
@@ -44,7 +44,7 @@ pub struct DiffSection {
     /// The y index that the diff section is at.  
     /// This is multiplied by the line height to get the y position.  
     /// So this can roughly be considered as the `VLine of the start of this diff section, but it
-    /// isn't necessarily convertable to a `VLine` due to jumping over empty code sections.
+    /// isn't necessarily convertible to a `VLine` due to jumping over empty code sections.
     pub y_idx: usize,
     pub height: usize,
     pub kind: DiffSectionKind,

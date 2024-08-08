@@ -1,8 +1,8 @@
 use floem::{
-    cosmic_text::Weight,
     peniko::Color,
     reactive::create_signal,
     style::JustifyContent,
+    text::Weight,
     views::{
         button, checkbox, container, h_stack, h_stack_from_iter, label, list, scroll, stack,
         v_stack, v_stack_from_iter, virtual_list, Decorators, VirtualDirection, VirtualItemSize,
@@ -63,9 +63,8 @@ fn enhanced_list() -> impl IntoView {
                         (
                             checkbox(move || is_checked.get())
                                 .style(|s| s.margin_left(6))
-                                .on_click_stop(move |_| {
-                                    set_is_checked
-                                        .update(|checked: &mut bool| *checked = !*checked);
+                                .on_update(move |checkd| {
+                                    set_is_checked.set(checkd);
                                 }),
                             label(move || item.to_string()).style(|s| {
                                 s.margin_left(6).height(32.0).font_size(22.0).items_center()

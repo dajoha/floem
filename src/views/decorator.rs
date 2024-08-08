@@ -1,6 +1,6 @@
 //! # Decorator
 //!
-//! The decorator trait is the primary interface for extending the appereance and functionality of ['View']s.
+//! The decorator trait is the primary interface for extending the appearance and functionality of ['View']s.
 
 use floem_reactive::{create_effect, create_updater};
 use floem_winit::keyboard::Key;
@@ -63,6 +63,29 @@ pub trait Decorators: IntoView<V = Self::DV> + Sized {
         view
     }
 
+    fn debug_name_if<S: Into<String>>(
+        self,
+        apply: impl Fn() -> bool + 'static,
+        name: impl Fn() -> S + 'static,
+    ) -> Self::DV {
+        let view = self.into_view();
+        let view_id = view.id();
+        create_effect(move |_| {
+            let apply = apply();
+            let state = view_id.state();
+            if apply {
+                state.borrow_mut().debug_name.push(name().into());
+            } else {
+                state
+                    .borrow_mut()
+                    .debug_name
+                    .retain_mut(|n| n != &name().into());
+            }
+        });
+
+        view
+    }
+
     /// The visual style to apply when the mouse hovers over the element
     fn dragging_style(self, style: impl Fn(Style) -> Style + 'static) -> Self::DV {
         let view = self.into_view();
@@ -77,6 +100,26 @@ pub trait Decorators: IntoView<V = Self::DV> + Sized {
     fn class<C: StyleClass>(self, _class: C) -> Self::DV {
         let view = self.into_view();
         view.id().add_class(C::class_ref());
+        view
+    }
+
+    fn class_if<C: StyleClass>(self, apply: impl Fn() -> bool + 'static, _class: C) -> Self::DV {
+        let view = self.into_view();
+        let id = view.id();
+        create_effect(move |_| {
+            let apply = apply();
+            if apply {
+                id.add_class(C::class_ref());
+            } else {
+                id.remove_class(C::class_ref());
+            }
+        });
+        view
+    }
+
+    fn remove_class<C: StyleClass>(self, _class: C) -> Self::DV {
+        let view = self.into_view();
+        view.id().remove_class(C::class_ref());
         view
     }
 

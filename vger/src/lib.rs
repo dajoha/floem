@@ -3,7 +3,8 @@ use std::sync::mpsc::sync_channel;
 use std::sync::Arc;
 
 use anyhow::Result;
-use floem_renderer::cosmic_text::{SubpixelBin, SwashCache, TextLayout};
+use floem_renderer::swash::SwashScaler;
+use floem_renderer::text::{CacheKey, TextLayout};
 use floem_renderer::{tiny_skia, Img, Renderer};
 use floem_vger_rs::{Image, PaintIndex, PixelFormat, Vger};
 use image::{DynamicImage, EncodableLayout, RgbaImage};
@@ -27,6 +28,7 @@ pub struct VgerRenderer {
     transform: Affine,
     clip: Option<Rect>,
     capture: bool,
+    swash_scaler: SwashScaler,
 }
 
 impl VgerRenderer {
@@ -110,6 +112,7 @@ impl VgerRenderer {
             transform: Affine::IDENTITY,
             clip: None,
             capture: false,
+            swash_scaler: SwashScaler::new(),
         })
     }
 
@@ -411,7 +414,6 @@ impl Renderer for VgerRenderer {
     }
 
     fn draw_text(&mut self, layout: &TextLayout, pos: impl Into<Point>) {
-        let mut swash_cache = SwashCache::new();
         let transform = self.transform.as_coeffs();
         let offset = Vec2::new(transform[4], transform[5]);
         let pos: Point = pos.into();
@@ -438,33 +440,37 @@ impl Renderer for VgerRenderer {
                     }
                 }
 
-                if glyph_run.is_tab {
-                    continue;
-                }
+                // if glyph_run.is_tab {
+                //     continue;
+                // }
 
-                if let Some(paint) = self.brush_to_paint(glyph_run.color) {
+                let color = match glyph_run.color_opt {
+                    Some(c) => Color::rgba8(c.r(), c.g(), c.b(), c.a()),
+                    None => Color::BLACK,
+                };
+                if let Some(paint) = self.brush_to_paint(color) {
                     let glyph_x = x * self.scale as f32;
-                    let (new_x, subpx_x) = SubpixelBin::new(glyph_x);
-                    let glyph_x = new_x as f32;
-
                     let glyph_y = (y * self.scale as f32).round();
-                    let (new_y, subpx_y) = SubpixelBin::new(glyph_y);
-                    let glyph_y = new_y as f32;
-
                     let font_size = (glyph_run.font_size * self.scale as f32).round() as u32;
+                    let (cache_key, new_x, new_y) = CacheKey::new(
+                        glyph_run.font_id,
+                        glyph_run.glyph_id,
+                        font_size as f32,
+                        (glyph_x, glyph_y),
+                        glyph_run.cache_key_flags,
+                    );
+
+                    let glyph_x = new_x as f32;
+                    let glyph_y = new_y as f32;
                     self.vger.render_glyph(
                         glyph_x,
                         glyph_y,
-                        glyph_run.cache_key.font_id,
-                        glyph_run.cache_key.glyph_id,
+                        glyph_run.font_id,
+                        glyph_run.glyph_id,
                         font_size,
-                        (subpx_x, subpx_y),
+                        (cache_key.x_bin, cache_key.y_bin),
                         || {
-                            let mut cache_key = glyph_run.cache_key;
-                            cache_key.font_size = font_size;
-                            cache_key.x_bin = subpx_x;
-                            cache_key.y_bin = subpx_y;
-                            let image = swash_cache.get_image_uncached(cache_key);
+                            let image = self.swash_scaler.get_image(cache_key);
                             image.unwrap_or_default()
                         },
                         paint,

@@ -2,8 +2,8 @@
 //!
 //!
 
-use floem_renderer::cosmic_text;
-use floem_renderer::cosmic_text::{LineHeightValue, Weight};
+use floem_reactive::create_updater;
+use floem_renderer::text::{LineHeightValue, Weight};
 use im_rc::hashmap::Entry;
 use peniko::Color;
 use rustc_hash::FxHasher;
@@ -68,7 +68,7 @@ impl StylePropValue for CursorStyle {}
 impl StylePropValue for BoxShadow {}
 impl StylePropValue for String {}
 impl StylePropValue for Weight {}
-impl StylePropValue for cosmic_text::Style {}
+impl StylePropValue for crate::text::Style {}
 impl StylePropValue for TextOverflow {}
 impl StylePropValue for LineHeightValue {}
 impl StylePropValue for Size<LengthPercentage> {}
@@ -183,7 +183,7 @@ impl StyleClassInfo {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct StyleClassRef {
     pub key: StyleKey,
 }
@@ -741,7 +741,7 @@ impl Style {
         result
     }
 
-    pub(crate) fn apply_classes_from_context(
+    pub fn apply_classes_from_context(
         mut self,
         classes: &[StyleClassRef],
         context: &Style,
@@ -1228,7 +1228,7 @@ define_builtin_props!(
     FontSize font_size nocb: Option<f32> { inherited } = None,
     FontFamily font_family nocb: Option<String> { inherited } = None,
     FontWeight font_weight nocb: Option<Weight> { inherited } = None,
-    FontStyle font_style nocb: Option<cosmic_text::Style> { inherited } = None,
+    FontStyle font_style nocb: Option<crate::text::Style> { inherited } = None,
     CursorColor cursor_color nocb: Color {} = Color::BLACK.with_alpha_factor(0.3),
     SelectionCornerRadius selection_corer_radius nocb: f64 {} = 1.,
     Selectable selectable: bool {} = true,
@@ -1699,7 +1699,7 @@ impl Style {
         self.font_weight(Weight::BOLD)
     }
 
-    pub fn font_style(self, style: impl Into<StyleValue<cosmic_text::Style>>) -> Self {
+    pub fn font_style(self, style: impl Into<StyleValue<crate::text::Style>>) -> Self {
         self.set_style_value(FontStyle, style.into().map(Some))
     }
 
@@ -1811,6 +1811,10 @@ impl Style {
             self
         }
     }
+
+    pub fn apply_custom<CS: Into<Style>>(self, custom_style: CS) -> Self {
+        self.apply(custom_style.into())
+    }
 }
 
 impl Style {
@@ -1875,6 +1879,30 @@ impl Style {
             grid_auto_columns: style.grid_auto_columns(),
             ..Default::default()
         }
+    }
+}
+
+pub trait CustomStylable<S: Default + Into<Style> + 'static>:
+    IntoView<V = Self::DV> + Sized
+{
+    type DV: View;
+
+    /// #  Add a custom style to the view with acess to this view's specialized custom style.
+    ///
+    /// A note for implementors of the trait:
+    ///
+    /// _Don't try to implement this method yourself, just use the trait's default implementation._
+    fn custom_style(self, style: impl Fn(S) -> S + 'static) -> Self::DV {
+        let view = self.into_view();
+        let id = view.id();
+        let view_state = id.state();
+        let offset = view_state.borrow_mut().style.next_offset();
+        let style = create_updater(
+            move || style(S::default()),
+            move |style| id.update_style(offset, style.into()),
+        );
+        view_state.borrow_mut().style.push(style.into());
+        view
     }
 }
 
