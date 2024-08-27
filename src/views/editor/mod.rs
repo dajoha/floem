@@ -32,7 +32,7 @@ use floem_editor_core::{
     selection::Selection,
     soft_tab::{snap_to_soft_tab_line_col, SnapDirection},
 };
-use floem_reactive::Trigger;
+use floem_reactive::{SignalGet, SignalUpdate, SignalWith, Trigger};
 use lapce_xi_rope::Rope;
 
 pub mod actions;
@@ -51,6 +51,7 @@ pub mod view;
 pub mod visual_line;
 
 pub use floem_editor_core as core;
+use peniko::Brush;
 
 use self::{
     command::Command,
@@ -133,7 +134,7 @@ impl EditorStyle {
     }
 }
 impl EditorStyle {
-    pub fn ed_caret(&self) -> Color {
+    pub fn ed_caret(&self) -> Brush {
         self.caret()
     }
 }

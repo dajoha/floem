@@ -15,7 +15,9 @@ use crate::views::{
 use crate::window::WindowConfig;
 use crate::{new_window, style};
 use floem_editor_core::register::Clipboard;
-use floem_reactive::{create_effect, create_rw_signal, create_signal, RwSignal, Scope};
+use floem_reactive::{
+    create_effect, create_rw_signal, create_signal, RwSignal, Scope, SignalGet, SignalUpdate,
+};
 use floem_winit::keyboard::{self, NamedKey};
 use floem_winit::window::WindowId;
 use image::DynamicImage;
@@ -34,6 +36,7 @@ use taffy::style::{AlignItems, FlexDirection};
 pub struct CapturedView {
     id: ViewId,
     name: String,
+    id_data_str: String,
     custom_name: String,
     layout: Rect,
     taffy: Layout,
@@ -73,6 +76,7 @@ impl CapturedView {
         Self {
             id,
             name,
+            id_data_str: id.data().as_ffi().to_string(),
             custom_name,
             layout,
             taffy,
@@ -295,7 +299,7 @@ fn captured_view_with_children(
     let expanding_selection = capture_view.expanding_selection;
     let view_ = view.clone();
 
-    let expanded = create_rw_signal(true);
+    let expanded = create_rw_signal(false);
 
     let name_id = name.id();
     let row = stack((
@@ -423,8 +427,10 @@ fn add_event(
         .on_secondary_click({
             let name = name.clone();
             move |_| {
-                let mut clipboard = SystemClipboard::new();
-                clipboard.put_string(name.clone());
+                if !name.is_empty() {
+                    let mut clipboard = SystemClipboard::new();
+                    clipboard.put_string(name.clone());
+                }
                 EventPropagation::Stop
             }
         })
@@ -958,21 +964,13 @@ fn capture_view(
     .style(|s| s.max_width_pct(60.0));
 
     let root = capture.root.clone();
-    let tree = scroll(
-        captured_view(&capture.root, 0, &capture_view, capture).style(|s| s.min_width_full()),
-    )
-    .style(|s| {
-        s.width_full()
-            .min_height(0)
-            .flex_basis(0)
-            .flex_grow(1.0)
-            .flex_col()
-    })
-    .on_event_cont(EventListener::PointerLeave, move |_| {
-        capture_view.highlighted.set(None)
-    })
-    .on_click_stop(move |_| capture_view.selected.set(None))
-    .scroll_to_view(move || capture_view.scroll_to.get());
+    let tree = scroll(captured_view(&capture.root, 0, &capture_view, capture))
+        .scroll_style(|s| s.shrink_to_fit())
+        .on_event_cont(EventListener::PointerLeave, move |_| {
+            capture_view.highlighted.set(None)
+        })
+        .on_click_stop(move |_| capture_view.selected.set(None))
+        .scroll_to_view(move || capture_view.scroll_to.get());
 
     let search_str = create_rw_signal("".to_string());
     let inner_search = search_str;
@@ -1169,7 +1167,12 @@ fn find_view(name: &str, views: &Rc<CapturedView>) -> Vec<ViewId> {
     if name.is_empty() {
         return ids;
     }
-    if views.name.contains(name) {
+    if views
+        .name
+        .to_lowercase()
+        .contains(name.to_lowercase().as_str())
+        || views.id_data_str.contains(name)
+    {
         ids.push(views.id);
     }
     views

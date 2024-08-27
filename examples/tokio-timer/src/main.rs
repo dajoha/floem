@@ -1,15 +1,23 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use floem::{
-    action::exec_after,
-    reactive::{create_effect, create_rw_signal, SignalGet, SignalUpdate, SignalWith},
+    ext_event::create_signal_from_stream,
+    reactive::{create_rw_signal, SignalGet, SignalUpdate},
     unit::UnitExt,
     views::{button, container, label, slider, stack, text, v_stack, Decorators},
     IntoView,
 };
+use tokio::runtime::Runtime;
+use tokio::time::Instant;
+use tokio_stream::wrappers::IntervalStream;
 
 fn main() {
-    floem::launch(app_view);
+    // Multi threaded runtime is required because the main thread is not a real tokio task
+    let runtime = Runtime::new().expect("Could not start tokio runtime");
+
+    // We must make it so that the main task is under the tokio runtime so that APIs like
+    // tokio::spawn work
+    runtime.block_on(async { tokio::task::block_in_place(|| floem::launch(app_view)) })
 }
 
 fn app_view() -> impl IntoView {
@@ -19,37 +27,28 @@ fn app_view() -> impl IntoView {
     let duration_slider = thin_slider(move || target_duration.get())
         .on_change_pct(move |new| target_duration.set(new));
 
-    let elapsed_time = create_rw_signal(Duration::ZERO);
-    let is_active = move || elapsed_time.get().as_secs_f32() < target_duration.get();
+    let stream = IntervalStream::new(tokio::time::interval(Duration::from_millis(100)));
+    let now = Instant::now();
+    let started_at = create_rw_signal(now);
+    let current_instant = create_signal_from_stream(now, stream);
+    let elapsed_time = move || current_instant.get().duration_since(started_at.get());
+    let is_active = move || elapsed_time().as_secs_f32() < target_duration.get();
 
     let elapsed_time_label = label(move || {
         format!(
             "{:.1}s",
             if is_active() {
-                elapsed_time.get().as_secs_f32()
+                elapsed_time().as_secs_f32()
             } else {
                 target_duration.get()
             }
         )
     });
 
-    let tick = create_rw_signal(());
-    create_effect(move |_| {
-        tick.track();
-        let before_exec = Instant::now();
-
-        exec_after(Duration::from_millis(100), move |_| {
-            if is_active() {
-                elapsed_time.update(|d| *d += before_exec.elapsed());
-            }
-            tick.set(());
-        });
-    });
-
-    let progress = move || elapsed_time.get().as_secs_f32() / target_duration.get() * 100.0;
+    let progress = move || elapsed_time().as_secs_f32() / target_duration.get() * 100.0;
     let elapsed_time_bar = gauge(progress);
 
-    let reset_button = button(|| "Reset").on_click_stop(move |_| elapsed_time.set(Duration::ZERO));
+    let reset_button = button(|| "Reset").on_click_stop(move |_| started_at.set(Instant::now()));
 
     let view = v_stack((
         stack((text("Elapsed Time: "), elapsed_time_bar)).style(|s| s.justify_between()),

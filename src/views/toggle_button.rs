@@ -4,13 +4,13 @@ use floem_reactive::{create_effect, create_updater};
 use floem_renderer::Renderer;
 use floem_winit::keyboard::{Key, NamedKey};
 use peniko::kurbo::{Point, Size};
-use peniko::Color;
+use peniko::Brush;
 
 use crate::{
     event::EventPropagation,
     id::ViewId,
     prop, prop_extractor,
-    style::{self, Foreground, Style, StyleValue},
+    style::{self, Foreground, Style},
     style_class,
     unit::PxPct,
     view::View,
@@ -80,6 +80,8 @@ pub struct ToggleButton {
 ///
 /// An example using [`RwSignal`](floem_reactive::RwSignal):
 /// ```rust
+/// use floem::reactive::{SignalGet, SignalUpdate};
+///
 /// let state = floem::reactive::create_rw_signal(true);
 /// floem::views::toggle_button(move || state.get())
 ///         .on_toggle(move |new_state| state.set(new_state));
@@ -245,7 +247,7 @@ impl View for ToggleButton {
         let circle_point = Point::new(self.position as f64, size.to_rect().center().y);
         let circle = crate::kurbo::Circle::new(circle_point, self.radius as f64);
         if let Some(color) = self.style.foreground() {
-            cx.fill(&circle, color, 0.);
+            cx.fill(&circle, &color, 0.);
         }
     }
 }
@@ -303,8 +305,8 @@ impl ToggleButtonCustomStyle {
     ///
     /// # Arguments
     /// * `color` - An `Option<Color>` that sets the handle's color. `None` will remove the color.
-    pub fn handle_color(mut self, color: impl Into<Option<Color>>) -> Self {
-        self = Self(self.0.set(Foreground, color));
+    pub fn handle_color(mut self, color: impl Into<Brush>) -> Self {
+        self = Self(self.0.set(Foreground, Some(color.into())));
         self
     }
 
@@ -312,7 +314,7 @@ impl ToggleButtonCustomStyle {
     ///
     /// # Arguments
     /// * `color` - A `StyleValue<Color>` that sets the toggle button's accent color. This is the same as the background color.
-    pub fn accent_color(mut self, color: impl Into<StyleValue<Color>>) -> Self {
+    pub fn accent_color(mut self, color: impl Into<Brush>) -> Self {
         self = Self(self.0.background(color));
         self
     }

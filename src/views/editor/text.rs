@@ -4,7 +4,6 @@ use crate::{
     keyboard::Modifiers,
     peniko::Color,
     reactive::{RwSignal, Scope},
-    style,
     text::{Attrs, AttrsList, FamilyOwned, Stretch, Weight},
     views::EditorCustomStyle,
 };
@@ -20,6 +19,7 @@ use floem_editor_core::{
     selection::Selection,
     word::WordCursor,
 };
+use floem_reactive::SignalGet;
 use lapce_xi_rope::Rope;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -376,7 +376,7 @@ pub fn default_light_theme(mut style: EditorCustomStyle) -> EditorCustomStyle {
     style.0 = style
         .0
         .color(fg)
-        .set(style::Background, bg)
+        .background(bg)
         .class(GutterClass, |s| s.background(bg));
 
     style

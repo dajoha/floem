@@ -1,7 +1,7 @@
 use floem::{
     event::{Event, EventListener, EventPropagation},
     peniko::Color,
-    reactive::{create_rw_signal, create_signal},
+    reactive::{create_rw_signal, create_signal, SignalGet, SignalUpdate},
     style::{CursorStyle, Position},
     views::{
         container, h_stack, label, scroll, virtual_stack, Decorators, VirtualDirection,
@@ -27,6 +27,7 @@ pub fn draggable_sidebar_view() -> impl IntoView {
             move |item| {
                 label(move || format!("Item {} with long lines", item)).style(move |s| {
                     s.text_ellipsis()
+                        .height(22)
                         .padding(10.0)
                         .padding_top(3.0)
                         .padding_bottom(3.0)

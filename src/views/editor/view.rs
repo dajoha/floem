@@ -21,6 +21,7 @@ use floem_editor_core::{
     cursor::{ColPosition, CursorAffinity, CursorMode},
     mode::{Mode, VisualMode},
 };
+use floem_reactive::{SignalGet, SignalUpdate, SignalWith};
 
 use crate::views::editor::{
     command::CommandExecuted,
@@ -645,7 +646,7 @@ impl EditorView {
                     let line_height = ed.line_height(info.vline_info.rvline.line);
                     let rect =
                         Rect::from_origin_size((x, info.vline_y), (width, f64::from(line_height)));
-                    cx.fill(&rect, caret_color, 0.0);
+                    cx.fill(&rect, &caret_color, 0.0);
                 }
             }
         });
@@ -1163,6 +1164,7 @@ fn editor_content(
                     return;
                 };
 
+                let key_text = key_event.key.text.clone();
                 let Ok(keypress) = KeyPress::try_from(key_event) else {
                     return;
                 };
@@ -1181,6 +1183,10 @@ fn editor_content(
                     } else if let KeyInput::Keyboard(Key::Named(NamedKey::Space), _) = keypress.key
                     {
                         editor.get_untracked().receive_char(" ");
+                    } else if let KeyInput::Keyboard(Key::Unidentified(_), _) = keypress.key {
+                        if let Some(text) = key_text {
+                            editor.get_untracked().receive_char(&text);
+                        }
                     }
                 }
             })

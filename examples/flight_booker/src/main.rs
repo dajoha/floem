@@ -1,6 +1,6 @@
 use floem::{
     peniko::Color,
-    reactive::{create_rw_signal, create_signal},
+    reactive::{create_rw_signal, create_signal, SignalGet, SignalUpdate},
     unit::UnitExt,
     views::{
         button, dyn_container, empty, h_stack, labeled_radio_button, text, text_input, v_stack,
@@ -61,13 +61,13 @@ pub fn app_view() -> impl IntoView {
             move || flight_mode.get(),
             || "One way flight",
         )
-        .on_click_stop(move |_| flight_mode_set.set(FlightMode::OneWay)),
+        .on_update(move |v| flight_mode_set.set(v)),
         labeled_radio_button(
             FlightMode::Return,
             move || flight_mode.get(),
             || "Return flight",
         )
-        .on_click_stop(move |_| flight_mode_set.set(FlightMode::Return)),
+        .on_update(move |v| flight_mode_set.set(v)),
     ));
 
     let start_date_input = text_input(start_text)

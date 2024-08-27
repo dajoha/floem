@@ -7,8 +7,8 @@ use crate::{
     keyboard::KeyEvent,
     prop_extractor,
     style::{
-        CursorColor, FontProps, LineHeight, Selectable, SelectionCornerRadius, SelectionStyle,
-        Style, TextColor, TextOverflow, TextOverflowProp,
+        CursorColor, CustomStylable, FontProps, LineHeight, Selectable, SelectionCornerRadius,
+        SelectionStyle, Style, TextColor, TextOverflow, TextOverflowProp,
     },
     style_class,
     text::{Attrs, AttrsList, FamilyOwned, TextLayout},
@@ -19,8 +19,11 @@ use crate::{
 use floem_reactive::create_updater;
 use floem_renderer::{text::Cursor, Renderer};
 use floem_winit::keyboard::{Key, SmolStr};
-use peniko::kurbo::{Point, Rect};
 use peniko::Color;
+use peniko::{
+    kurbo::{Point, Rect},
+    Brush,
+};
 use taffy::tree::NodeId;
 
 use super::{Decorators, TextCommand};
@@ -276,7 +279,7 @@ impl Label {
                     let end_y = start_y + run.line_height as f64;
                     let rect = Rect::new(start_x.into(), start_y, end_x.into(), end_y)
                         .to_rounded_rect(ss.corner_radius());
-                    paint_cx.fill(&rect, selection_color, 0.0);
+                    paint_cx.fill(&rect, &selection_color, 0.0);
                 }
             }
         }
@@ -286,15 +289,7 @@ impl Label {
         self,
         style: impl Fn(LabelCustomStyle) -> LabelCustomStyle + 'static,
     ) -> Self {
-        let id = self.id();
-        let view_state = id.state();
-        let offset = view_state.borrow_mut().style.next_offset();
-        let style = create_updater(
-            move || style(LabelCustomStyle::new()),
-            move |style| id.update_style(offset, style.0),
-        );
-        view_state.borrow_mut().style.push(style.0);
-        self
+        self.custom_style(style)
     }
 }
 
@@ -528,7 +523,17 @@ impl View for Label {
 }
 
 /// Represents a custom style for a `Label`.
+#[derive(Debug, Clone)]
 pub struct LabelCustomStyle(Style);
+impl From<LabelCustomStyle> for Style {
+    fn from(value: LabelCustomStyle) -> Self {
+        value.0
+    }
+}
+
+impl CustomStylable<LabelCustomStyle> for Label {
+    type DV = Self;
+}
 
 impl LabelCustomStyle {
     pub fn new() -> Self {
@@ -545,7 +550,7 @@ impl LabelCustomStyle {
         self
     }
 
-    pub fn selection_color(mut self, color: impl Into<Color>) -> Self {
+    pub fn selection_color(mut self, color: impl Into<Brush>) -> Self {
         self = Self(self.0.set(CursorColor, color));
         self
     }
