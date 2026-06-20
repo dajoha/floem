@@ -523,7 +523,17 @@ impl Scroll {
         self.child
             .get_layout()
             .map(|layout| Size::new(layout.size.width as f64, layout.size.height as f64))
-            .unwrap()
+            // The child may have no computed layout yet (e.g. on the first layout pass right
+            // after a `dyn_view` rebuilt the list). Fall back to ZERO instead of panicking;
+            // the size is recomputed on the next layout pass.
+            //
+            // TODO(qwest): the trigger here is the same as in `list.rs` — qwest's library tree
+            // rebuilds the whole list (and its enclosing `scroll`) via `dyn_view` on every
+            // change, so the child is briefly layout-less. Moving the tree to `virtual_stack`/
+            // `virtual_list` removes that trigger. Unlike the `list.rs` guard, however, this
+            // fallback can be KEPT even afterwards: it mirrors floem/main's defensive
+            // `local_bounds(...).unwrap_or_default()`, which guards the same case permanently.
+            .unwrap_or_default()
     }
 
     fn v_handle_style(&self) -> &ScrollTrackStyle {

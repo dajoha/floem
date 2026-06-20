@@ -199,7 +199,20 @@ impl View for List {
                             child.request_style_recursive();
                         }
                     }
-                    if let Some(index) = self.selection.get_untracked() {
+                    // Guard the disposed signal: when the surrounding view (e.g. a `dyn_view`
+                    // rebuilding the whole list) is disposed while a `SelectionChanged` message
+                    // is still queued, `selection` no longer exists. `get_untracked` would
+                    // `unwrap()` on `None` and panic, so bail out gracefully instead.
+                    //
+                    // TODO(qwest): remove this guard once qwest's library tree stops rebuilding
+                    // the whole `list` on every change. The crash is triggered by qwest wrapping
+                    // the tree in a `dyn_view` that disposes and recreates the entire `list` (and
+                    // its `selection` signal) on each `library` mutation, leaving stale update
+                    // messages targeting the dead signal. Migrating the tree to `virtual_stack`/
+                    // `virtual_list` (which diffs the collection by key and never disposes the
+                    // container) removes the dispose-while-message-pending race at its root and
+                    // makes this guard unnecessary.
+                    if let Some(Some(index)) = self.selection.try_get_untracked() {
                         if let Some(&child) = self.child.children().get(index) {
                             child.request_style_recursive();
                             child.scroll_to(None);
@@ -208,7 +221,12 @@ impl View for List {
                 }
                 ListUpdate::Accept => {
                     if let Some(on_accept) = &self.onaccept {
-                        on_accept(self.selection.get_untracked());
+                        // Same disposed-signal guard as above, and same TODO(qwest): remove once
+                        // the library tree uses `virtual_stack`/`virtual_list` instead of
+                        // rebuilding (and disposing) the whole `list` on every change.
+                        if let Some(selection) = self.selection.try_get_untracked() {
+                            on_accept(selection);
+                        }
                     }
                 }
             }
