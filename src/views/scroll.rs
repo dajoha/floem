@@ -763,8 +763,7 @@ impl Scroll {
         let visible_rect = Rect::from_origin_size(self.scroll_offset.to_point(), viewport_size);
 
         // If rect is already fully visible, no need to scroll
-        if visible_rect.contains_rect(rect) {
-            return;
+        if visible_rect.contains_rect(rect) {            return;
         }
 
         let mut new_offset = self.scroll_offset;
