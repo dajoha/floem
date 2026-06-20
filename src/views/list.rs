@@ -189,14 +189,21 @@ impl View for List {
         if let Ok(change) = state.downcast::<ListUpdate>() {
             match *change {
                 ListUpdate::SelectionChanged(old_idx) => {
+                    // Guard the indexing: `SelectionChanged` is fired by the reactive effect
+                    // on every `selection` change, including the immediate first run where
+                    // `selection` defaults to `Some(0)`. An empty `list([])` (e.g. a scope
+                    // sidebar rebuilt for a node with no scopes) would otherwise index
+                    // `children()[0]` on zero children and panic. Mirrors floem/main's `.get`.
                     if let Some(old_idx) = old_idx {
-                        let child = self.child.children()[old_idx];
-                        child.request_style_recursive();
+                        if let Some(&child) = self.child.children().get(old_idx) {
+                            child.request_style_recursive();
+                        }
                     }
                     if let Some(index) = self.selection.get_untracked() {
-                        let child = self.child.children()[index];
-                        child.request_style_recursive();
-                        child.scroll_to(None);
+                        if let Some(&child) = self.child.children().get(index) {
+                            child.request_style_recursive();
+                            child.scroll_to(None);
+                        }
                     }
                 }
                 ListUpdate::Accept => {
