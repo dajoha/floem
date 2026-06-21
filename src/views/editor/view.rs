@@ -1021,27 +1021,32 @@ impl View for EditorView {
 
     fn event(&mut self, cx: &mut crate::event::EventCx) -> EventPropagation {
         if UpdatePhaseBoxTreeCommit::extract(&cx.event).is_some() {
-            let editor = self.editor.get_untracked();
-            let visual_rect = self.id.get_visual_rect();
-            let layout_rect = self.id.get_visual_rect_no_clip();
-            let viewport = Rect::from_origin_size(
-                (
-                    (visual_rect.x0 - layout_rect.x0).max(0.0),
-                    (visual_rect.y0 - layout_rect.y0).max(0.0),
-                ),
-                visual_rect.size(),
-            );
-            if editor.viewport.with_untracked(|v| v != &viewport) {
-                editor.viewport.set(viewport);
+            // Guard against a disposed signal: if the surrounding scope (e.g. a `dyn_view`
+            // rebuilding its content) is torn down while a `UpdatePhaseBoxTreeCommit` message is
+            // still in flight, `editor` no longer exists. Same root cause as the `list.rs` patch.
+            if let Some(editor) = self.editor.try_get_untracked() {
+                let visual_rect = self.id.get_visual_rect();
+                let layout_rect = self.id.get_visual_rect_no_clip();
+                let viewport = Rect::from_origin_size(
+                    (
+                        (visual_rect.x0 - layout_rect.x0).max(0.0),
+                        (visual_rect.y0 - layout_rect.y0).max(0.0),
+                    ),
+                    visual_rect.size(),
+                );
+                if editor.viewport.with_untracked(|v| v != &viewport) {
+                    editor.viewport.set(viewport);
+                }
             }
         }
         if LayoutChangedListener::extract(&cx.event).is_some() {
-            let editor = self.editor.get_untracked();
-            // Get parent size
-            if let Some(parent) = self.id.parent() {
-                let parent_size = parent.get_layout_rect();
-                if editor.parent_size.with_untracked(|ps| ps != &parent_size) {
-                    editor.parent_size.set(parent_size);
+            if let Some(editor) = self.editor.try_get_untracked() {
+                // Get parent size
+                if let Some(parent) = self.id.parent() {
+                    let parent_size = parent.get_layout_rect();
+                    if editor.parent_size.with_untracked(|ps| ps != &parent_size) {
+                        editor.parent_size.set(parent_size);
+                    }
                 }
             }
         }
