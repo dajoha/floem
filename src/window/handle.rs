@@ -1305,6 +1305,25 @@ impl WindowHandle {
                         self.id.request_all();
                     }
                     UpdateMessage::RegisterListener(key, id) => {
+                        // Guard: the view may have been removed between the time
+                        // `register_listener` enqueued this message and now.  This
+                        // happens when a `dyn_view` rebuilds its whole subtree on
+                        // every signal change (as qwest's library tree does): new
+                        // views emit `RegisterListener` into CENTRAL_UPDATE_MESSAGES,
+                        // `process_central_messages` moves them here after seeing a
+                        // live root, but `remove_view` for the old subtree may run
+                        // first in the same `process_update_messages` pass, clearing
+                        // `s.root` before this message is consumed.  Registering a
+                        // stale id would leave it in `listeners` forever and cause
+                        // `commit_box_tree` to panic when it calls `s.root.get`.
+                        //
+                        // TODO(qwest): remove this guard once the library tree is
+                        // migrated from `dyn_view + list` to `virtual_list`, which
+                        // diffs the collection by key and never disposes the whole
+                        // container, eliminating the race at its root.
+                        if id.try_root().is_none() {
+                            continue;
+                        }
                         cx.window_state.listeners.entry(key).or_default().push(id);
                         id.state().borrow_mut().registered_listener_keys.push(key);
                     }
