@@ -124,6 +124,7 @@ pub(crate) fn children_in_paint_order(parent_id: ViewId) -> Vec<ViewId> {
 /// A bundle of helper methods to be used by `View::event` handlers
 pub struct EventCx<'a> {
     pub window_state: &'a mut WindowState,
+    pub global_event_listener: Option<&'a Box<dyn Fn(&Event) -> EventPropagation>>,
 }
 
 impl EventCx<'_> {
@@ -673,6 +674,12 @@ impl EventCx<'_> {
         } else {
             self.window_state.focus
         };
+
+        if let Some(global_event_listener) = &self.global_event_listener {
+            if let EventPropagation::Stop = global_event_listener(&event) {
+                return EventPropagation::Stop;
+            }
+        }
 
         // Dispatch the event based on its type and current state
         if event.needs_focus() {

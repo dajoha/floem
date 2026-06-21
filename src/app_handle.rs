@@ -366,6 +366,7 @@ impl ApplicationHandle {
             win_os_config,
             web_config,
             font_embolden,
+            global_event_listener,
         }: WindowConfig,
     ) {
         let logical_size = size.map(|size| LogicalSize::new(size.width, size.height));
@@ -548,6 +549,7 @@ impl ApplicationHandle {
             transparent,
             apply_default_theme,
             font_embolden,
+            global_event_listener,
         );
         self.window_handles.insert(window_id, window_handle);
     }

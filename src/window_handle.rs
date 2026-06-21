@@ -27,6 +27,7 @@ use winit::{
 use crate::dropped_file::FileDragEvent;
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use crate::event::EventListener;
+use crate::event::EventPropagation;
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use crate::menu::MudaMenu;
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
@@ -87,6 +88,7 @@ pub(crate) struct WindowHandle {
     pub(crate) window_menu_actions: HashMap<MenuId, Box<dyn Fn()>>,
     pub(crate) window_menu: Option<muda::Menu>,
     pub(crate) event_reducer: WindowEventReducer,
+    pub(crate) global_event_listener: Option<Box<dyn Fn(&Event) -> EventPropagation>>,
 }
 
 impl WindowHandle {
@@ -98,6 +100,7 @@ impl WindowHandle {
         transparent: bool,
         apply_default_theme: bool,
         font_embolden: f32,
+        global_event_listener: Option<Box<dyn Fn(&Event) -> EventPropagation>>,
     ) -> Self {
         let scope = Scope::new();
         let window_id = window.id();
@@ -205,6 +208,7 @@ impl WindowHandle {
             window_menu_actions: HashMap::new(),
             window_menu: None,
             event_reducer: WindowEventReducer::default(),
+            global_event_listener,
         };
         if paint_state_initialized {
             window_handle.init_renderer(gpu_resources);
@@ -294,6 +298,7 @@ impl WindowHandle {
             window_menu_actions: HashMap::new(),
             window_menu: None,
             event_reducer: WindowEventReducer::default(),
+            global_event_listener: None,
         };
 
         window_handle
@@ -347,6 +352,7 @@ impl WindowHandle {
         // Use the shared event dispatch logic
         let mut cx = EventCx {
             window_state: &mut self.window_state,
+            global_event_listener: self.global_event_listener.as_ref(),
         };
         cx.dispatch_event(self.id, self.main_view, event);
 
@@ -468,6 +474,7 @@ impl WindowHandle {
                 set_current_view(self.id);
                 let cx = EventCx {
                     window_state: &mut self.window_state,
+                    global_event_listener: self.global_event_listener.as_ref(),
                 };
                 let was_hovered = std::mem::take(&mut cx.window_state.hovered);
                 for id in was_hovered {
