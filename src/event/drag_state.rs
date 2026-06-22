@@ -609,6 +609,10 @@ impl DragTracker {
         let track_targets = state.track_targets;
 
         if track_targets {
+            // The hover path is pre-filtered by the dispatcher to exclude the dragged element and
+            // its subtree (see `handle_default_behaviors`). What remains is only real drop
+            // candidates ordered topmost-last, so the topmost hit is the drop target. The Drop is
+            // dispatched with STANDARD phase, so it bubbles up to a handler on an ancestor.
             let drop_target = self.hover_state.current_path().last().copied();
 
             // Clear hover state and generate Leave events

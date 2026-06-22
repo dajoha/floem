@@ -1109,18 +1109,39 @@ impl RouteCx<'_, '_> {
                 self.gcx.window_state.needs_box_tree_commit = true;
                 self.dispatch_drag_event(drag_dispatch);
             }
-            if let Some(_active) = &self.gcx.window_state.drag_tracker.active_drag {
+            if let Some(dragged_id) = self
+                .gcx
+                .window_state
+                .drag_tracker
+                .active_drag
+                .as_ref()
+                .map(|active| active.element_id)
+            {
                 self.gcx.window_state.needs_box_tree_from_layout = true;
-                let hover_path = self
+                // The drag preview follows the cursor and stays pickable, so the dragged element
+                // (and its whole subtree) keep appearing in the hit path, interleaved with real
+                // targets by sibling z-order — NOT pushed on top (the "on top" only happens at
+                // paint time). Drop targeting must ignore the dragged subtree, otherwise the
+                // resolved target depends on drag direction (e.g. the parent List when dragging
+                // downward). Filter it out here so the drag tracker only sees real drop candidates.
+                let box_tree = self.gcx.window_state.box_tree.borrow();
+                let hover_path: Vec<ElementId> = self
                     .hit_path
-                    .as_ref()
-                    .map(|p| p.iter().as_slice())
-                    .unwrap_or(&[]);
+                    .as_deref()
+                    .unwrap_or(&[])
+                    .iter()
+                    .copied()
+                    .filter(|id| {
+                        *id != dragged_id
+                            && !build_ancestor_chain(*id, &box_tree).contains(&dragged_id)
+                    })
+                    .collect();
+                drop(box_tree);
                 let drag_events = self
                     .gcx
                     .window_state
                     .drag_tracker
-                    .on_pointer_move(&pu, hover_path);
+                    .on_pointer_move(&pu, &hover_path);
                 for drag_event in drag_events {
                     self.dispatch_drag_event(drag_event);
                 }
@@ -1227,7 +1248,11 @@ impl RouteCx<'_, '_> {
                 );
             }
             DragEventDispatch::Target(target_id, drag_target_event) => {
-                let phases = if drag_target_event.is_move() {
+                // Move uses STANDARD so ancestors receive it during capture.
+                // Drop uses STANDARD so the event can bubble up from the hit element
+                // to a handler registered on an ancestor (e.g. a wrapper view).
+                // Enter/Leave use TARGET-only — they fire only on the specific element.
+                let phases = if drag_target_event.is_move() || drag_target_event.is_drop() {
                     Phases::STANDARD
                 } else {
                     Phases::TARGET
