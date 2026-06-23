@@ -1969,8 +1969,31 @@ impl RouteCx<'_, '_> {
             None => return,
         };
 
-        let chain =
-            hit_path_to_dispatch_path(path.as_ref(), &self.gcx.window_state.box_tree.borrow());
+        let box_tree = self.gcx.window_state.box_tree.borrow();
+        // While dragging, the dragged element follows the cursor and stays pickable, so the raw
+        // hit path includes it (interleaved with real elements by sibling z-order). It must not
+        // receive :hover — the element *under* it is the hover/drop target. Exclude its subtree so
+        // the topmost remaining hit becomes the dispatch leaf, regardless of drag direction.
+        let chain = if let Some(dragged_id) = self
+            .gcx
+            .window_state
+            .drag_tracker
+            .active_drag
+            .as_ref()
+            .map(|a| a.element_id)
+        {
+            let filtered: Vec<ElementId> = path
+                .iter()
+                .copied()
+                .filter(|id| {
+                    *id != dragged_id && !build_ancestor_chain(*id, &box_tree).contains(&dragged_id)
+                })
+                .collect();
+            hit_path_to_dispatch_path(&filtered, &box_tree)
+        } else {
+            hit_path_to_dispatch_path(path.as_ref(), &box_tree)
+        };
+        drop(box_tree);
 
         self.update_hover_from_path(&chain);
     }
