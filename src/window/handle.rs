@@ -52,7 +52,7 @@ use crate::{
     app::UserEvent,
     context::{FrameUpdate, LayoutChanged, PaintState, StyleCx, UpdateCx, VisualChanged},
     event::{
-        Event, GlobalEventCx, ImeEvent, WindowEvent, clear_hit_test_cache,
+        Event, EventPropagation, GlobalEventCx, ImeEvent, WindowEvent, clear_hit_test_cache,
         dropped_file::FileDragEvent,
     },
     inspector::{self, Capture, CaptureState, CapturedView, profiler::Profile},
@@ -98,6 +98,7 @@ pub(crate) struct WindowHandle {
     last_presented_at: Instant,
     is_occluded: bool,
     live_resize_until: Option<Instant>,
+    global_event_listener: Option<Box<dyn Fn(&Event) -> EventPropagation>>,
 }
 
 impl Drop for WindowHandle {
@@ -121,6 +122,7 @@ impl WindowHandle {
         transparent: bool,
         apply_default_theme: bool,
         font_embolden: f32,
+        global_event_listener: Option<Box<dyn Fn(&Event) -> EventPropagation>>,
     ) -> Self {
         let id = ViewId::new_root();
         let window_id = window.id();
@@ -202,6 +204,7 @@ impl WindowHandle {
             last_presented_at: Instant::now(),
             is_occluded: false,
             live_resize_until: None,
+            global_event_listener,
         };
         if paint_state_initialized {
             window_handle.init_renderer();
@@ -348,6 +351,7 @@ impl WindowHandle {
             last_presented_at: Instant::now(),
             is_occluded: false,
             live_resize_until: None,
+            global_event_listener: None,
         };
 
         window_handle
@@ -390,6 +394,12 @@ impl WindowHandle {
 
     pub fn event(&mut self, event: Event) {
         set_current_view(self.id.root());
+
+        if let Some(listener) = &self.global_event_listener {
+            if listener(&event).is_stop() {
+                return;
+            }
+        }
 
         // Check event type for platform-specific context menu handling
         #[cfg(any(target_os = "linux", target_os = "freebsd", target_arch = "wasm32"))]

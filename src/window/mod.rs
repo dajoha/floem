@@ -20,6 +20,7 @@ pub use winit::window::WindowLevel;
 
 use crate::AnyView;
 use crate::app::{AppUpdateEvent, add_app_update_event};
+use crate::event::{Event, EventPropagation};
 use crate::view::IntoView;
 
 pub struct WindowCreation {
@@ -51,6 +52,7 @@ pub struct WindowConfig {
     pub(crate) mac_os_config: Option<MacOSWindowConfig>,
     pub(crate) win_os_config: Option<WinOSWindowConfig>,
     pub(crate) web_config: Option<WebWindowConfig>,
+    pub(crate) global_event_listener: Option<Box<dyn Fn(&Event) -> EventPropagation>>,
 }
 
 impl Default for WindowConfig {
@@ -79,6 +81,7 @@ impl Default for WindowConfig {
             mac_os_config: None,
             win_os_config: None,
             web_config: None,
+            global_event_listener: None,
         }
     }
 }
@@ -280,6 +283,17 @@ impl WindowConfig {
             });
             self.web_config = Some(new_config);
         }
+        self
+    }
+
+    /// Set a global event listener that intercepts every input event before it is
+    /// dispatched into the view tree. Return [`EventPropagation::Stop`] to swallow
+    /// the event entirely, or [`EventPropagation::Continue`] to let it through.
+    pub fn global_event_listener(
+        mut self,
+        listener: impl Fn(&Event) -> EventPropagation + 'static,
+    ) -> Self {
+        self.global_event_listener = Some(Box::new(listener));
         self
     }
 }
