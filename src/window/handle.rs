@@ -1267,7 +1267,11 @@ impl WindowHandle {
                                 ImeRequest::Disable
                             };
 
-                            self.window.request_ime_update(ime).unwrap();
+                            // A window is allowed to refuse an IME update: the headless
+                            // window of `floem-test` answers `ImeRequestError::NotSupported`
+                            // by design. Panicking here kills every test that gives the
+                            // keyboard focus to a text input, so drop the error instead.
+                            let _ = self.window.request_ime_update(ime);
                         }
                     }
                     UpdateMessage::SetImeCursorArea { position, size } => {
