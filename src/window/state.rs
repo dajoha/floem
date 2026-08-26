@@ -930,7 +930,10 @@ impl WindowState {
     /// consistent for paint + hit testing.
     ///
     /// Order of operations:
-    /// 1. Apply drag-preview world position override (if an active drag preview exists)
+    /// 1. Apply drag-preview world position override (if an active drag preview exists),
+    ///    clearing and committing it first so its own natural-position tracking reads the
+    ///    row's real, undragged position rather than an echo of its own last override
+    ///    (see the note further down)
     /// 2. Apply overlay parent-space remap (`apply_overlay_parent_transforms`)
     /// 3. Apply fixed-position viewport placement (`apply_fixed_positioning_transforms`)
     /// 4. Commit the box tree, producing dirty/damage regions
@@ -945,9 +948,24 @@ impl WindowState {
     /// correctness, or damage-driven cursor/hover updates.
     pub fn commit_box_tree(&mut self) {
         self.invalidate_focus_nav_cache();
+
         if let Some(dragging) = &mut self.drag_tracker.active_drag
             && let Some(dragging_preview) = dragging.dragging_preview.clone()
         {
+            // `set_world_position` replaces the node's world transform outright. As long as
+            // last frame's override (the cursor-following position, or a return-animation
+            // step) is still in effect, `world_transform` below would only ever echo back
+            // exactly what was last applied here: it can never reveal an independent
+            // layout change underneath the override, such as a same-key `dyn_stack` row
+            // reordered to a new sibling slot while it is being dragged. Clearing the
+            // override and committing first exposes the row's real, undragged position,
+            // which is what "natural position" is meant to track; it is reapplied below
+            // once that position has been read.
+            self.box_tree
+                .borrow_mut()
+                .set_world_position(dragging_preview.element_id.0, None);
+            self.box_tree.borrow_mut().commit();
+
             let local_bounds = self
                 .box_tree
                 .borrow()
