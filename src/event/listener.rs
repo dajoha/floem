@@ -145,9 +145,12 @@ mod inner {
 
     #[derive(Debug)]
     pub struct EventKeyInfo {
-        pub(crate) name: fn() -> &'static str,
+        // Public so the `custom_event!` macro can build one from outside the crate.
+        #[doc(hidden)]
+        pub name: fn() -> &'static str,
         /// Extract the relevant event data if this listener matches the event
-        pub(crate) extract: fn(&Event) -> Option<&dyn Any>,
+        #[doc(hidden)]
+        pub extract: fn(&Event) -> Option<&dyn Any>,
     }
 
     impl EventListenerKey {

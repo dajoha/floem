@@ -53,7 +53,7 @@ pub mod tuple;
 pub use id::{ViewId, process_pending_scope_reparents};
 pub use into_iter::*;
 pub use state::*;
-pub(crate) use storage::*;
+pub use storage::*;
 pub use tuple::*;
 
 use floem_reactive::{Effect, ReadSignal, RwSignal, Scope, SignalGet, UpdaterEffect};
